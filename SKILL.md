@@ -15,6 +15,8 @@ description: Route NTU course-material tasks to the seven output-specific course
 | 周度、主题、代码复习 | [04 复习笔记](skills/【复习笔记】ntu-review-notes/SKILL.md) |
 | 考前速记、术语对照、五分钟速览 | [05 速记术语](skills/【考前速记与术语】ntu-exam-quick-reference/SKILL.md) |
 | 录播字幕、课堂讲解、课程日程、考试或 Presentation 信息与原通知 | [06 录播与课程信息](skills/【录播与课程信息】ntu-class-recordings/SKILL.md) |
+| 录播视频下载（仅限 Media Gallery/Kaltura 开放流，须用户确认） | [06a 录播视频下载](skills/【录播视频下载】ntu-media-gallery-video-download/SKILL.md) |
+| Media Gallery/Kaltura 自动字幕（WebVTT）获取（须用户确认） | [06b Media Gallery 字幕获取](skills/【自动字幕获取】ntu-media-gallery-captions/SKILL.md) |
 | 周练、主题练习、Quiz/Final 模拟卷、Sample Quiz | [07 题库考试](skills/【练习题与模拟考】ntu-practice-assessments/SKILL.md) |
 
 归属按用途，不按扩展名：Tutorial 属课前预习，其翻译、讲解与解答 Notebook 归 03，不归 04，并在 03 的 Tutorial 合集中放与 01 正本逐字节一致的原件副本；考试/Presentation 通知属 06，不是 01。任务跨域时仅加载实际涉及的子 SKILL，并使来源与派生产物各有一个实体归属（Tutorial 原件在 03 的核对副本是唯一例外），不制作快捷方式或符号链接替身。课程目录只交付用户需要的实体原件、成品及运行所必需资源；不要因执行本 Skill 在课程根目录新建 `流程管理` 等 Codex 治理目录，过程文件按[默认合同](references/defaults.md)放在课程目录和 SKILL 包之外的临时区，用户验收后清理。
