@@ -158,13 +158,15 @@ oh-my-ntu/
 ├── SKILL.md                  入口说明书：AI 先读它，再按你的需求去读对应的子技能
 ├── references/
 │   └── defaults.md           通用约定：目录怎么建、文件怎么命名、改动前怎么备份验证
-├── skills/                   七份子技能说明书，一类产物一份
+├── skills/                   九份子技能说明书，一类产物一份
 │   ├── 【原始课件整理】ntu-source-courseware/        课件的获取、清点、按周归档
 │   ├── 【大作业初始化】ntu-assignment-setup/         作业要求、DDL、评分标准、提交模板
 │   ├── 【课件预习笔记】ntu-courseware-to-notebook/   课件转中英对照笔记和网页阅读版
 │   ├── 【复习笔记】ntu-review-notes/             周度回顾、专题笔记
 │   ├── 【考前速记与术语】ntu-exam-quick-reference/     速记卡、术语表、五分钟速览
 │   ├── 【录播与课程信息】ntu-class-recordings/         字幕归档、上课与考试信息汇总
+│   ├── 【录播视频下载】ntu-media-gallery-video-download/  Media Gallery 录播抓流下载（须用户确认）
+│   ├── 【自动字幕获取】ntu-media-gallery-captions/     Media Gallery 自动字幕抓取（须用户确认）
 │   └── 【练习题与模拟考】ntu-practice-assessments/     练习、模拟卷、Sample 存档
 ├── scripts/                  AI 干活时会自己调用的小工具，你不用管
 │   ├── build_course_reader.py        把做好的笔记转成离线网页版
