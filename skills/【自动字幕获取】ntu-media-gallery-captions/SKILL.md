@@ -7,7 +7,7 @@ description: 从 NTULearn Media Gallery / Kaltura 频道的录播视频中获取
 
 ## 与 06（ntu-class-recordings）的分工
 
-06 处理**官方附件字幕**（课程页直接提供的 .srt/.vtt 下载）。本 Skill 处理 06 覆盖不到的场景：Media Gallery/Kaltura 录播**没有官方字幕附件**，但播放器实际加载了自动字幕流（Kaltura `serveWebVTT` 接口）。两者互补，不冲突：
+06 处理**官方附件字幕**（课程页直接提供的 .srt/.vtt 下载，以及 Kaltura 录播页「Attachments」标签里的 .txt 原文与 .json 逐词时间轴）。走本 Skill 之前，先逐条打开录播页的 Attachments 标签确认没有官方附件。本 Skill 处理 06 覆盖不到的场景：Media Gallery/Kaltura 录播**没有官方字幕附件**，但播放器实际加载了自动字幕流（Kaltura `serveWebVTT` 接口）。两者互补，不冲突：
 
 - 有官方附件 → 走 06，本 Skill 不介入；
 - 无官方附件、有 Kaltura 自动字幕 → 走本 Skill；
