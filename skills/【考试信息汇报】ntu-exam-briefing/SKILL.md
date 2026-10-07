@@ -36,7 +36,7 @@ description: 为用户正在修的任意一门课、任意一次 Quiz/Midterm/Fi
 1. 用 `scripts/transcript_segments.py` 把逐词时间轴切成带时间戳的句子；没有 json 时可用 `.vtt`。
 2. 用 `scripts/find_exam_mentions.py` 分三层检索：A 直接考试词（quiz、exam、MCQ、negative marking、calculator、seat、lab 等）；B 强调与排除（not tested、remember this、most important、memorize 等）；C 课堂小测标记（Wooclap、QR code、next question、closing in）。脚本按词边界匹配，避免 `exam` 命中 `example`；课程特有的词用 `--extra` 补充。
 3. 每条命中都要读前后至少 4–8 句再下结论，排除老师拿"quiz 分数""考试"打比方的段落。识别自动转写错误（例如把 chapters 识别成 hatters），中文意思按上下文纠正，原文照录。
-4. 课堂小测要同时找到出题时间和公布答案时间。答案只采用老师口述或投屏标出的 Correct answer；老师没公布的，标"本地判断"并写出依据。
+4. 课堂小测属于教师 Sample Quiz，每堂课一套，题目登记与答案依据按 [07 课堂小测样题](../【练习题与模拟考】ntu-practice-assessments/references/in-class-quiz-samples.md) 执行。课堂小测要同时找到出题时间和公布答案时间。答案只采用老师口述或投屏标出的 Correct answer；老师没公布的，标"本地判断"并写出依据。
 
 ## 5. 截取录播画面
 
@@ -58,7 +58,7 @@ description: 为用户正在修的任意一门课、任意一次 Quiz/Midterm/Fi
 2. 考试范围
 3. 考试题型
 4. 考试分数计算
-5. 考试重点：课堂小测、Sample Quiz、Tutorial 的定位、老师强调的点、明确不考
+5. 考试重点：Sample Quiz（平台 Sample 与每堂课的课堂小测，按课次分组）、Tutorial 的定位、老师强调的点、明确不考
 6. 备考内容：按优先级列出，链接到本地 03/04/05/07 成品，并给考前清单
 7. 原始内容对照：全部原文与来源登记
 
