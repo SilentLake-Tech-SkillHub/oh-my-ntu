@@ -35,12 +35,21 @@ def main() -> None:
         assert page.locator('.feedback .result').count() == 0
         assert page.locator('#submit').is_disabled()
         page.screenshot(path=str(evidence / '01_空白卷.png'))
-        page.locator('#q1 input').first.check()
-        assert page.locator('#submit').is_disabled()
+        def answer_first(number: int) -> None:
+            box = page.locator(f'#q{number} input').first
+            if box.get_attribute('type') == 'text':
+                box.fill('draft answer')
+            else:
+                box.check()
+
+        answer_first(1)
+        if args.questions > 1:
+            assert page.locator('#submit').is_disabled()
         page.reload()
-        assert page.locator('#q1 input').first.is_checked()
+        first = page.locator('#q1 input').first
+        assert (first.input_value() == 'draft answer') if first.get_attribute('type') == 'text' else first.is_checked()
         for number in range(2, args.questions + 1):
-            page.locator(f'#q{number} input').first.check()
+            answer_first(number)
         assert page.locator('#submit').is_enabled()
         page.screenshot(path=str(evidence / '02_全答待提交.png'))
         page.locator('#submit').click()
@@ -61,10 +70,13 @@ def main() -> None:
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.screenshot(path=str(evidence / '04_手机空白卷.png'))
         if args.max_points is not None:
-            keys = page.evaluate('QUESTIONS.map(question => question.answer)')
-            for number, answer_indices in enumerate(keys, 1):
-                for index in answer_indices:
-                    page.locator(f'#q{number} input').nth(index).check()
+            keys = page.evaluate("QUESTIONS.map(q => q.type === 'fill' ? {fill: q.accept[0]} : {idx: q.answer})")
+            for number, key in enumerate(keys, 1):
+                if 'fill' in key:
+                    page.locator(f'#q{number} input').first.fill(key['fill'])
+                else:
+                    for index in key['idx']:
+                        page.locator(f'#q{number} input').nth(index).check()
             assert page.locator('#submit').is_enabled()
             page.locator('#submit').click()
             assert page.locator('#summary').get_by_text(
