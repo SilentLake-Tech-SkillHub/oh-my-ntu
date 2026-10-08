@@ -9,6 +9,8 @@ The bank is a JSON object:
 `answer` holds zero-based option indices; more than one index makes a multi-select item.
 Fill-in items use {"type": "fill", "prompt": "...", "accept": ["normal distribution", "gaussian"], ...}
 instead of options/answer; matching ignores case, punctuation and extra spaces.
+Optional: "points" (positive number, default 1), "answer_basis" (post-submission label),
+"prompt_image" and "prompt_image_caption" (visible before submission).
 Optional per question: "image" (path relative to the bank file) and "image_caption"; the image is
 embedded and shown only in the post-submission feedback, as answer evidence.
 Course data lives in the bank file, never in this script.
@@ -34,6 +36,7 @@ const PAPER=__PAPER__;
 const VERSION=__VERSION__;
 const KEY=`ntu-practice:${COURSE}:${PAPER}:${VERSION}`;
 const HIST=`ntu-practice-history:${COURSE}:${PAPER}`;
+const TOTAL=QUESTIONS.reduce((n,q)=>n+(q.points??1),0);
 const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 let answers=Array.from({length:QUESTIONS.length},()=>[]);
 let submitted=false;
@@ -43,18 +46,19 @@ function load(){try{const x=JSON.parse(localStorage.getItem(KEY));if(x&&Array.is
 function save(){localStorage.setItem(KEY,JSON.stringify({version:VERSION,answers,submitted,updated:new Date().toISOString()}));}
 function label(a){return a.length?a.map(i=>letters[i]).join(', '):'—';}
 function norm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g,' ').trim();}
+function questionImage(q){return q.prompt_image?`<figure class="evidence"><img src="${esc(q.prompt_image)}" alt="${esc(q.prompt_image_caption||'Question figure')}"><figcaption>${esc(q.prompt_image_caption||'')}</figcaption></figure>`:'';}
 function isFill(q){return q.type==='fill';}
 function score(q,a){if(isFill(q))return q.accept.map(norm).includes(norm(a[0]))?1:0;const right=q.answer;const wrong=a.filter(i=>!right.includes(i));if(wrong.length)return 0;return a.filter(i=>right.includes(i)).length/right.length;}
 function render(){
- document.getElementById('questions').innerHTML=QUESTIONS.map((q,i)=>isFill(q)?`<article class="card" id="q${i+1}"><h2>Question ${i+1} <span class="meta">· Fill in the blank</span></h2><p>${rich(q.prompt)}</p><input class="fill" type="text" name="q${i}" aria-label="Question ${i+1} answer" value="${esc(answers[i][0]||'')}" ${submitted?'disabled':''}><div class="feedback" id="f${i}"></div></article>`:`<article class="card" id="q${i+1}"><h2>Question ${i+1} <span class="meta">· ${q.answer.length>1?'Select all that apply':'Select one'}</span></h2><p>${rich(q.prompt)}</p>${q.options.map((op,j)=>`<label class="option"><input aria-label="Question ${i+1} option ${letters[j]}" type="${q.answer.length>1?'checkbox':'radio'}" name="q${i}" value="${j}" ${answers[i].includes(j)?'checked':''} ${submitted?'disabled':''}><span><strong>${letters[j]}.</strong> ${rich(op)}</span></label>`).join('')}<div class="feedback" id="f${i}"></div></article>`).join('');
+ document.getElementById('questions').innerHTML=QUESTIONS.map((q,i)=>isFill(q)?`<article class="card" id="q${i+1}"><h2>Question ${i+1} <span class="meta">· Fill in the blank</span></h2><p>${rich(q.prompt)}</p>${questionImage(q)}<input class="fill" type="text" name="q${i}" aria-label="Question ${i+1} answer" value="${esc(answers[i][0]||'')}" ${submitted?'disabled':''}><div class="feedback" id="f${i}"></div></article>`:`<article class="card" id="q${i+1}"><h2>Question ${i+1} <span class="meta">· ${q.answer.length>1?'Select all that apply':'Select one'}</span></h2><p>${rich(q.prompt)}</p>${questionImage(q)}${q.options.map((op,j)=>`<label class="option"><input aria-label="Question ${i+1} option ${letters[j]}" type="${q.answer.length>1?'checkbox':'radio'}" name="q${i}" value="${j}" ${answers[i].includes(j)?'checked':''} ${submitted?'disabled':''}><span><strong>${letters[j]}.</strong> ${rich(op)}</span></label>`).join('')}<div class="feedback" id="f${i}"></div></article>`).join('');
  document.querySelectorAll('#questions input.fill').forEach(el=>el.addEventListener('input',event=>{const i=Number(event.target.name.slice(1));const v=event.target.value;answers[i]=v.trim()?[v]:[];save();update();}));
  document.querySelectorAll('#questions input:not(.fill)').forEach(el=>el.addEventListener('change',event=>{const i=Number(event.target.name.slice(1)),j=Number(event.target.value);if(event.target.type==='radio')answers[i]=[j];else answers[i]=event.target.checked?[...answers[i],j].sort() : answers[i].filter(v=>v!==j);save();update();}));
  if(submitted)showFeedback();update();renderHistory();
 }
 function update(){let done=answers.filter(a=>a.length).length;document.getElementById('progress').textContent=`${done} / ${QUESTIONS.length} answered`+(submitted?' · submitted':'');document.getElementById('submit').disabled=submitted||done!==QUESTIONS.length;}
-function showFeedback(){let sum=0;QUESTIONS.forEach((q,i)=>{const a=answers[i],points=score(q,a);sum+=points;const card=document.getElementById(`q${i+1}`);card.classList.add(points===1?'correct':'wrong');const lines=isFill(q)?`Your answer: ${esc(a[0]||'—')}<br>Accepted answers: ${q.accept.map(esc).join(' / ')}`:(()=>{const miss=q.answer.filter(v=>!a.includes(v));const extra=a.filter(v=>!q.answer.includes(v));return `Your answer: ${label(a)}<br>Correct answer: ${label(q.answer)}<br>Missed: ${label(miss)} · Incorrectly selected: ${label(extra)}`;})();const ev=q.image?`<figure class="evidence"><img src="${q.image}" alt="evidence for question ${i+1}" loading="lazy"><figcaption>${esc(q.image_caption||'')}</figcaption></figure>`:'';document.getElementById(`f${i}`).innerHTML=`<div class="result"><strong>${points===1?'Correct':'Review'} · ${points.toFixed(2)} / 1</strong><p>${lines}</p><p><strong>Explanation (EN):</strong> ${esc(q.en)}</p><p><strong>解析（中文）：</strong> ${esc(q.zh)}</p><p><strong>Knowledge:</strong> ${esc(q.topic)}</p><p><strong>Lecture source:</strong> ${esc(q.source)}</p>${ev}</div>`;});document.getElementById('summary').innerHTML=`<div class="result"><strong>Score: ${sum.toFixed(2)} / ${QUESTIONS.length}</strong><p>${Math.round(100*sum/QUESTIONS.length)}% · All answers and sources are now visible below.</p></div>`;return sum;}
-function renderHistory(){let hist=[];try{hist=JSON.parse(localStorage.getItem(HIST))||[]}catch(e){}document.getElementById('history').innerHTML=hist.length?'<h2>Submission history</h2><ol>'+hist.slice().reverse().map(h=>`<li>${esc(h.time)} · ${esc(h.score)} / ${QUESTIONS.length} · ${esc(h.version)} · wrong: ${esc(h.wrong.join(', ')||'none')}</li>`).join('')+'</ol>':'<h2>Submission history</h2><p>No submissions yet.</p>';}
-document.getElementById('submit').addEventListener('click',()=>{if(submitted||answers.some(a=>!a.length))return;submitted=true;const sum=showFeedback();let hist=[];try{hist=JSON.parse(localStorage.getItem(HIST))||[]}catch(e){}hist.push({time:new Date().toLocaleString(),score:sum.toFixed(2),version:VERSION,answers:answers.map(a=>[...a]),optionOrder:QUESTIONS.map(q=>(q.options||[]).map((_,j)=>letters[j])),wrong:QUESTIONS.map((q,i)=>score(q,answers[i])===1?null:i+1).filter(Boolean)});localStorage.setItem(HIST,JSON.stringify(hist));save();render();document.getElementById('summary').scrollIntoView({behavior:'smooth'});});
+function showFeedback(){let sum=0;QUESTIONS.forEach((q,i)=>{const a=answers[i],points=score(q,a);sum+=points*(q.points??1);const card=document.getElementById(`q${i+1}`);card.classList.add(points===1?'correct':'wrong');const lines=isFill(q)?`Your answer: ${esc(a[0]||'—')}<br>Accepted answers: ${q.accept.map(esc).join(' / ')}`:(()=>{const miss=q.answer.filter(v=>!a.includes(v));const extra=a.filter(v=>!q.answer.includes(v));return `Your answer: ${label(a)}<br>Correct answer: ${label(q.answer)}<br>Missed: ${label(miss)} · Incorrectly selected: ${label(extra)}`;})();const ev=q.image?`<figure class="evidence"><img src="${q.image}" alt="evidence for question ${i+1}" loading="lazy"><figcaption>${esc(q.image_caption||'')}</figcaption></figure>`:'';document.getElementById(`f${i}`).innerHTML=`<div class="result"><strong>${points===1?'Correct':'Review'} · ${(points*(q.points??1)).toFixed(2)} / ${q.points??1}</strong><p>${lines}</p>${q.answer_basis?`<p><strong>Answer basis / 答案依据:</strong> ${esc(q.answer_basis)}</p>`:''}<p><strong>Explanation (EN):</strong> ${esc(q.en)}</p><p><strong>解析（中文）：</strong> ${esc(q.zh)}</p><p><strong>Knowledge:</strong> ${esc(q.topic)}</p><p><strong>Lecture source:</strong> ${esc(q.source)}</p>${ev}</div>`;});document.getElementById('summary').innerHTML=`<div class="result"><strong>Score: ${sum.toFixed(2)} / ${TOTAL}</strong><p>${Math.round(100*sum/TOTAL)}% · All answers and sources are now visible below.</p></div>`;return sum;}
+function renderHistory(){let hist=[];try{hist=JSON.parse(localStorage.getItem(HIST))||[]}catch(e){}document.getElementById('history').innerHTML=hist.length?'<h2>Submission history</h2><ol>'+hist.slice().reverse().map(h=>`<li>${esc(h.time)} · ${esc(h.score)} / ${esc(h.maxPoints??TOTAL)} · ${esc(h.version)} · wrong: ${esc(h.wrong.join(', ')||'none')}</li>`).join('')+'</ol>':'<h2>Submission history</h2><p>No submissions yet.</p>';}
+document.getElementById('submit').addEventListener('click',()=>{if(submitted||answers.some(a=>!a.length))return;submitted=true;const sum=showFeedback();let hist=[];try{hist=JSON.parse(localStorage.getItem(HIST))||[]}catch(e){}hist.push({time:new Date().toLocaleString(),score:sum.toFixed(2),maxPoints:TOTAL,version:VERSION,answers:answers.map(a=>[...a]),optionOrder:QUESTIONS.map(q=>(q.options||[]).map((_,j)=>letters[j])),wrong:QUESTIONS.map((q,i)=>score(q,answers[i])===1?null:i+1).filter(Boolean)});localStorage.setItem(HIST,JSON.stringify(hist));save();render();document.getElementById('summary').scrollIntoView({behavior:'smooth'});});
 document.getElementById('reset').addEventListener('click',()=>{if(!confirm('Reset the current attempt? Your submission history will remain.'))return;answers=Array.from({length:QUESTIONS.length},()=>[]);submitted=false;save();document.getElementById('summary').innerHTML='';render();window.scrollTo({top:0,behavior:'smooth'});});
 load();render();
 </script>'''
@@ -66,6 +70,9 @@ def validate(bank: dict) -> list[dict]:
             raise SystemExit(f"bank is missing {key!r}")
     questions = bank["questions"]
     for n, q in enumerate(questions, 1):
+        points = q.get("points", 1)
+        if isinstance(points, bool) or not isinstance(points, (int, float)) or not (0 < points < float("inf")):
+            raise SystemExit(f"question {n} points must be a finite positive number")
         if q.get("type") == "fill":
             missing = [k for k in REQUIRED_FILL if k not in q]
             if missing or not q.get("accept"):
@@ -85,16 +92,19 @@ def embed_images(questions: list[dict], base: Path) -> list[dict]:
     out = []
     for q in questions:
         q = dict(q)
-        if q.get("image") and not str(q["image"]).startswith("data:"):
-            path = (base / q["image"]).resolve(strict=True)
-            mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-            q["image"] = f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+        for key in ("image", "prompt_image"):
+            if q.get(key) and not str(q[key]).startswith("data:"):
+                path = (base / q[key]).resolve(strict=True)
+                mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
+                q[key] = f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
         out.append(q)
     return out
 
 
 def render(bank: dict, base: Path = Path(".")) -> str:
     questions = embed_images(validate(bank), base)
+    total = sum(q.get("points", 1) for q in questions)
+    distribution = ", ".join(f'Q{i}: {q.get("points", 1):g}' for i, q in enumerate(questions, 1))
     title = html.escape(bank["title"])
     banner = html.escape(bank.get("banner", "本地练习，非官方 Quiz/Final"))
     qjson = json.dumps(questions, ensure_ascii=False).replace("<", "\\u003c")
@@ -107,7 +117,7 @@ def render(bank: dict, base: Path = Path(".")) -> str:
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>{title}</title>{STYLE}'
         f'<main><header class="hero"><div class="meta">{html.escape(bank["course"])} · {html.escape(bank["version"])} · {banner}</div>'
-        f'<h1>{title}</h1><p>{len(questions)} questions · 1 point each. Complete every question before submission. '
+        f'<h1>{title}</h1><p>{len(questions)} questions · {total:g} points total ({distribution}). Complete every question before submission. '
         'Answers and bilingual explanations appear only after submission.</p>'
         '<p class="meta">Progress and submission history are saved in this browser. For multi-select questions, an incomplete '
         'but otherwise correct selection receives proportional credit; any incorrect selection scores zero. '
