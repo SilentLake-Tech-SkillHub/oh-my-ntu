@@ -2,7 +2,7 @@
 name: ntu-course-workflow
 description: Route NTU course-material tasks to the output-specific course skills for source files, assignments, pre-study notebooks and Tutorial collections, revision notes, quick references, recordings, exam briefings, and practice exams.
 metadata:
-  version: "2026.10.10.1"
+  version: "1.0.1"
 ---
 
 # NTU 课程材料工作流

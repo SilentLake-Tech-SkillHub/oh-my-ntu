@@ -1,7 +1,7 @@
 ---
 name: ntu-practice-assessments
 metadata:
-  version: "2026.10.10.1"
+  version: "1.0.1"
 description: Create source-traceable NTU weekly and themed practice, Quiz/Final mock exams, and read-only Sample Quiz archives (platform samples plus one sample set per lecture built from the teacher's in-class quizzes) with gated answers and bilingual feedback.
 ---
 
