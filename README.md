@@ -172,6 +172,9 @@ oh-my-ntu/
 │   └── 【练习题与模拟考】ntu-practice-assessments/     练习、模拟卷、Sample 存档
 ├── scripts/                  AI 干活时会自己调用的小工具，你不用管
 │   ├── build_course_reader.py        把做好的笔记转成离线网页版
+│   ├── audit_practice_bank.py        检查任务条件与逐题审核指纹
+│   ├── check_practice_acceptance.py  核对内容、成品与浏览器完成证据
+│   ├── refresh_practice_page.py      备份后刷新已知模板的旧试卷
 │   ├── build_practice_page.py        把题库变成能作答的网页试卷
 │   ├── verify_practice_page.py       自动检查试卷网页的各种状态
 │   ├── transcript_segments.py        把录播逐词时间轴切成带时间戳的句子
@@ -183,3 +186,7 @@ oh-my-ntu/
 ```
 
 有的子技能文件夹里还有自己的 `references/`，是更细的操作细则，AI 做到那一步才会去读。
+
+## 练习卷的内容审核与旧页面更新
+
+练习子 Skill 的[内容验收说明](skills/【练习题与模拟考】ntu-practice-assessments/references/content-acceptance.md)给出题库条件、逐题审核、生成、浏览器检查和最终证据核对的执行顺序。默认生成要求已完成的内容审核；草稿预览会显示状态并关闭提交。需要读图的题必须在提交前显示真实题图，更新题面或图片后旧审核失效。旧页面刷新工具保持既有评分与历史，未知模板会停止写入。自动检查用于发现客观缺口，题干是否足以作答、来源及答案是否正确仍由逐题阅读审核负责。

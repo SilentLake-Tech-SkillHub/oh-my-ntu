@@ -2,7 +2,7 @@
 name: ntu-course-workflow
 description: Route NTU course-material tasks to the output-specific course skills for source files, assignments, pre-study notebooks and Tutorial collections, revision notes, quick references, recordings, exam briefings, and practice exams.
 metadata:
-  version: "2026.10.08.1"
+  version: "2026.10.10.1"
 ---
 
 # NTU 课程材料工作流
@@ -21,6 +21,8 @@ metadata:
 | Media Gallery/Kaltura 自动字幕（WebVTT）获取（须用户确认） | [06b Media Gallery 字幕获取](skills/【自动字幕获取】ntu-media-gallery-captions/SKILL.md) |
 | 某次 Quiz/Midterm/Final/Presentation 的考试信息汇报：时间地点座位、范围、题型、计分、重点（课堂小测/Tutorial/不考）、备考、原始内容对照，附截图的 HTML | [06c 考试信息汇报](skills/【考试信息汇报】ntu-exam-briefing/SKILL.md) |
 | 周练、主题练习、Quiz/Final 模拟卷、Sample Quiz（含每堂课的课堂小测，一堂课一套） | [07 题库考试](skills/【练习题与模拟考】ntu-practice-assessments/SKILL.md) |
+
+练习与模拟卷任务必须读取 07 的出题合同和[内容验收与旧成品刷新](skills/【练习题与模拟考】ntu-practice-assessments/references/content-acceptance.md)，先登记本次题型限制及图题覆盖，再逐题审核完整题面和源图。规则/生成器升级涉及已有成品时同时核对实际打开的旧文件。内容审核、浏览器验收和宿主收尾证据分别记录；只有结构或交互通过不能作为整套内容完成的结论。
 
 官方 Sample Quiz 默认交付 07 的离线 HTML 作答页，保留题面配图、全部题目与选项，整套提交后展示答案及中英解析；Markdown 存档是来源记录，不能替代已要求的 HTML 成品。平台的得分／总分与题数分别核对，页面同时显示题数、单题分值和总分。附件必须完成浏览器下载或原生保存窗口，并确认本地目标文件可读后才登记“已取得”；具体核对见 01。
 
