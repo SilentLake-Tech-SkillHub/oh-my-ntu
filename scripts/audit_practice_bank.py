@@ -128,8 +128,11 @@ def materialize(bank: dict, base: Path) -> dict:
 
 
 def content_identity(bank: dict) -> str:
-    return digest({k: bank.get(k) for k in (
-        "course", "paper_id", "version", "title", "banner", "requirements", "questions")})
+    fields = {k: bank.get(k) for k in (
+        "course", "paper_id", "version", "title", "banner", "requirements", "questions")}
+    if "delivery_identity" in bank:
+        fields["delivery_identity"] = bank["delivery_identity"]
+    return digest(fields)
 
 
 def question_id(q: dict, number: int) -> str:

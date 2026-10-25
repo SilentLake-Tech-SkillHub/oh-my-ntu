@@ -17,7 +17,8 @@ from pathlib import Path
 
 from audit_practice_bank import (RENDERER_VERSION, SCHEMA, audit, content_identity,
                                  file_hash, materialize, read_constant)
-from build_practice_page import validate
+from build_practice_page import validate, render
+from check_course_delivery import filename
 
 
 def replace_constant(source: str, name: str, value) -> str:
@@ -34,7 +35,8 @@ def score_source(source: str) -> str:
     return source[start:end]
 
 
-def refresh(target: Path, bank_path: Path, review_path: Path, backup: Path) -> dict:
+def refresh(target: Path, bank_path: Path, review_path: Path, backup: Path | None,
+            output: Path | None = None) -> dict:
     original = target.read_bytes()
     before = hashlib.sha256(original).hexdigest()
     source = original.decode('utf-8')
@@ -43,9 +45,9 @@ def refresh(target: Path, bank_path: Path, review_path: Path, backup: Path) -> d
     result = audit(bank, json.loads(review_path.read_text(encoding='utf-8')))
     if result['status'] != 'passed':
         raise ValueError('; '.join(result['errors']))
-    if '<h1>' + html.escape(bank['title']) + '</h1>' not in source:
+    if output is None and '<h1>' + html.escape(bank['title']) + '</h1>' not in source:
         raise ValueError('Visible title differs; adapt the header explicitly before refresh')
-    if bank.get('banner') and html.escape(bank['banner']) not in source:
+    if output is None and bank.get('banner') and html.escape(bank['banner']) not in source:
         raise ValueError('Visible banner differs; adapt the header explicitly before refresh')
     old = read_constant(source, 'QUESTIONS')[0]
     for name, key in (('COURSE', 'course'), ('PAPER', 'paper_id')):
@@ -66,6 +68,36 @@ def refresh(target: Path, bank_path: Path, review_path: Path, backup: Path) -> d
     prompt = '<p>${rich(q.prompt)}</p>'
     if prompt not in source:
         raise ValueError('Unsupported prompt layout; original HTML left untouched')
+    if output is not None:
+        # Published revisions are immutable. Only the legacy library adapter below
+        # performs in-place work, for isolated staging/compatibility tests.
+        if not bank.get('delivery_identity') or output.name != filename(bank['delivery_identity'], '.html'):
+            raise ValueError('New revision output must match bank.delivery_identity')
+        destinations = [p.resolve() for p in (target, bank_path, review_path, backup, output) if p is not None]
+        if len(set(destinations)) != len(destinations) or (backup is not None and backup.exists()) or output.exists():
+            raise ValueError('Backup and new revision must be distinct new files')
+        updated = render(bank, bank_path.resolve().parent, json.loads(review_path.read_text(encoding='utf-8')))
+        if score_source(updated) != scoring or history.group(0) not in updated:
+            raise ValueError('New renderer changes scoring/history; adapt and validate explicitly')
+        if file_hash(target) != before:
+            raise ValueError('Original changed during refresh; no output written')
+        if backup is not None:
+            backup.parent.mkdir(parents=True, exist_ok=True)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        if backup is not None:
+            with backup.open('xb') as handle:
+                handle.write(original)
+        with output.open('xb') as handle:
+            handle.write(updated.encode('utf-8'))
+            handle.flush()
+            os.fsync(handle.fileno())
+        if target.read_bytes() != original or output.read_text(encoding='utf-8') != updated:
+            raise OSError('Original/new revision readback differs; outputs require review')
+        return {**result, 'status': 'staged_revision_pending_replacement', 'scope': 'staged_revision_only',
+                'before_html_sha256': before, 'html_sha256': file_hash(output),
+                'backup_sha256': file_hash(backup) if backup else None, 'original_unchanged': True,
+                'obsolete_cleanup': 'required_before_delivery',
+                'browser_validation': 'pending', 'delivery_acceptance': 'pending'}
     if 'function questionImage(' not in source:
         helper = '\nfunction questionImage(q){return q.prompt_image?`<figure class="evidence"><img src="${esc(q.prompt_image)}" alt="${esc(q.prompt_image_caption||\'Question figure\')}"><figcaption>${esc(q.prompt_image_caption||\'\')}</figcaption></figure>`:\'\';}\n'
         source = source.replace('\nfunction render(', helper + 'function render(', 1)
@@ -89,7 +121,7 @@ def refresh(target: Path, bank_path: Path, review_path: Path, backup: Path) -> d
     source = re.sub(r'<p class="meta" data-content-version>.*?</p>', '', source)
     source = source.replace('</header>', marker + '</header>', 1)
     source = source.replace('</style>', '.evidence img{max-width:100%;height:auto}.evidence figcaption{font-size:14px}</style>', 1)
-    if backup.resolve() == target.resolve() or backup.exists():
+    if backup is None or backup.resolve() == target.resolve() or backup.exists():
         raise ValueError('Backup must be a new file outside the original target')
     backup.parent.mkdir(parents=True, exist_ok=True)
     backup.write_bytes(original)
@@ -121,16 +153,19 @@ def main() -> None:
     parser.add_argument('html', type=Path)
     parser.add_argument('--bank', type=Path, required=True)
     parser.add_argument('--review', type=Path, required=True)
-    parser.add_argument('--backup', type=Path, required=True)
+    parser.add_argument('--backup', type=Path, help='Optional temporary rollback copy; remove after successful replacement')
+    parser.add_argument('--output', type=Path, required=True, help='Staged latest revision; old artifacts must be removed before delivery acceptance')
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
+    if args.report.resolve() in {p.resolve() for p in (args.html, args.bank, args.review, args.backup, args.output) if p}:
+        parser.error('Report cannot overwrite source, new revision or evidence')
     try:
-        result = refresh(args.html, args.bank, args.review, args.backup)
+        result = refresh(args.html, args.bank, args.review, args.backup, args.output)
     except (Exception, SystemExit) as exc:
         result = {'schema': SCHEMA, 'status': 'failed', 'errors': [str(exc)]}
     args.report.write_text(json.dumps(result, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    raise SystemExit(0 if result['status'] == 'refreshed_pending_browser' else 1)
+    raise SystemExit(0 if result['status'] == 'staged_revision_pending_replacement' else 1)
 
 
 if __name__ == '__main__':

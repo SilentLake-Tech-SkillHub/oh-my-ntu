@@ -9,7 +9,7 @@
 ```markdown
 ## Chapter 4.3 · Slide 9 — Journey Mapping
 
-![Chapter 4.3 Slide 9 英文原图](【勿删】CAXXXX_Week04_课件中英对照_原页图片/chapter_4_3_slide_09.png)
+![Chapter 4.3 Slide 9 英文原图](【勿删】用户旅程课件原图/chapter_4_3_slide_09.png)
 ```
 
 紧邻的翻译 Markdown 单元：
@@ -54,7 +54,7 @@
     "render_dpi": 240,
     "box_xywh": [192, 343, 1598, 900]
   },
-  "image": "【勿删】CAXXXX_Week04_课件中英对照_原页图片/chapter_4_3_slide_09.png",
+  "image": "【勿删】用户旅程课件原图/chapter_4_3_slide_09.png",
   "pair_id": "caxxxx-week4-ch43-slide09",
   "image_cell_id": "ch43s09-image",
   "translation_cell_id": "ch43s09-zh"
@@ -65,6 +65,8 @@
 `source_pdf` 只是相对于 `【预习用】03_Notebook课件中英文对照解析/Week04/` 的示意路径；真实课件文件名与目录必须从当前课程核对，不得照抄此例。图片相对路径须与同周实体资源目录完全一致；改名或移动时逐一复验。
 
 为新单元设置 `metadata.courseware`，包含 `pair_id`、`role`（`original_image` 或 `translation`）、来源定位和上次生成内容哈希。单元合并格式可以用 `role: "paired"`。历史 `week4_translation` 等 metadata 可以继续识别，不必为统一格式重写用户文件。
+
+资料对象的正式身份放`metadata.course_delivery`，可读名称由其中presentation与用途生成，日期/版本/审核状态仍可追溯；阅读版与Notebook用集合objects记录关联。多份Notebook合成总册另记source_objects，不强制每份都有单独HTML。该身份不覆盖上述逐页courseware来源映射。
 
 ## 保存与重跑
 

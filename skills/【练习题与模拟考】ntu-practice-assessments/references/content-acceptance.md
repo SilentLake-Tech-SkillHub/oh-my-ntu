@@ -26,28 +26,36 @@
 python scripts/audit_practice_bank.py bank.json --review-template review.json --report content-pending.json
 # 模板默认未通过，第一步返回 1 是预期结果。实际逐题审核后填写 review.json。
 python scripts/audit_practice_bank.py bank.json --review review.json --report content.json
-python scripts/build_practice_page.py bank.json paper.html --review review.json
-python scripts/verify_practice_page.py paper.html --bank bank.json --review review.json --evidence evidence
-python scripts/check_practice_acceptance.py bank.json paper.html --review review.json --verification evidence/verification.json --report acceptance.json
+PAPER_PATH=output/按delivery_identity生成的完整文件名.html
+python scripts/build_practice_page.py bank.json "$PAPER_PATH" --review review.json
+python scripts/verify_practice_page.py "$PAPER_PATH" --bank bank.json --review review.json --evidence evidence
+python scripts/check_practice_acceptance.py bank.json "$PAPER_PATH" --review review.json --verification evidence/verification.json --manifest work/delivery.json --root COURSE_DIR --delivery-review work/delivery-review.json --previous work/before.json --report work/acceptance.json
 ```
 
-内容检查及最终检查只在通过时返回 0；失败返回 1。生成器默认要求内容审核通过；`--draft` 仅允许通过客观检查的未验收预览，页面显示草稿说明且提交关闭。生成成功仍是“内容已审核、浏览器待验证”。旧题库缺少条件/审核记录时补登记并读题，不能绕过为完整交付。
+示例中的 PAPER_PATH 按结构身份实际生成，不能直接使用占位名；新建集合省略 --previous，整批审核步骤见下文链接。内容检查及最终检查只在通过时返回 0；失败返回 1。生成器默认要求内容审核通过；`--draft` 仅允许通过客观检查的未验收预览，页面显示草稿说明且提交关闭。生成成功仍是“内容已审核、浏览器待验证”。旧题库缺少条件/审核记录时补登记并读题，不能绕过为完整交付。
 
 浏览器工具需要 Python Playwright 和 Chrome，可用 `--browser-executable` 指定已安装的浏览器。它打开临时隔离的浏览器存储，检查空白卷、草稿刷新、完整作答门禁、提交后双语反馈、满分评分、重置历史、手机布局，逐张确认提交前题图和提交后证据图实际解码，并拦截外部请求。记录绑定 HTML 字节 SHA256、题库内容 SHA256、渲染器版本、题数、分值和图片数量。失败会先失效旧记录；改过 HTML 后必须重新打开验收。向用户展示实际截图。
 
-## 刷新已经交付的旧文件
+## 替换已交付资料，只保留最新版
 
-更新规则或生成器后，盘点本次涉及的既有 HTML、来源题库、图资源和实际打开入口。不能只更新脚本就把旧页面称为已刷新。逐文件备份，记录旧 Hash；以有明确来源、完成新审核的题库刷新，保持题数、每题分值、作答类型、评分方式和历史。内容变化用新版本，旧尝试不作为新内容的作答恢复，历史成绩仍保留。
+先记录原目录、指纹及引用，在课程目录之外的临时区用 --output 生成新版并验收。refresh_practice_page.py 只表示新版准备就绪；正式切换后必须移除旧版文件、旧版入口和临时旧字节，不设历史版本区。题量、评分或题型变化按新内容重新审核，不能用旧分数解释新题库。
 
 ```sh
-python scripts/refresh_practice_page.py old-paper.html --bank bank.json --review review.json --backup backups/old-paper.html --report refresh.json
-# 刷新后仍需上述浏览器验证和最终 acceptance.json。
+python scripts/refresh_practice_page.py old-paper.html --bank bank.json --review review.json --output work/按identity生成的新版文件名.html --report work/refresh.json
+# staged_revision_pending_replacement 不是交付完成；正式目录旧件清理后另跑浏览器和整批验收。
 ```
 
-该工具只支持包含 JSON 常量题库、已知题干渲染位置和单行评分函数的模板：最小替换题库、加入题面图及验收元数据，并验证评分函数和历史键不变。新备份不能覆盖已有文件。未知动态题库、评分函数或页面结构会失败且不写原文件；定位变体后另做有证据的适配，不能猜测覆盖。刷新报告的 `refreshed_pending_browser` 表示文件已更新，尚未完成页面验收。对工具支持的页面，也必须核对新题面、每个选项和图，再验证评分与历史的实际表现。
+兼容刷新只支持已知题库及评分、历史键结构；不认识的模板先适配，不猜测覆盖。不得以保留作答记录为理由保留旧版 HTML 或旧版导航。备份仅用于临时切换恢复，成功后清理；脚本不自动执行正式资料清理。
 
 ## 与 Harness 收尾衔接
 
-最终 `check_practice_acceptance.py` 从源题库重新审核，读取成品实际数据，并核对浏览器记录及字节 Hash，输出 `scope: content_review_and_browser_acceptance`。任务完成记录须引用报告及对应的成品 Hash；内容检查、浏览器检查、实际生效副本分别列证据，任一缺失时不可写整体完成。
+最终 `check_practice_acceptance.py` 从源题库重新审核，读取成品实际数据，并核对浏览器记录及字节 Hash，默认联同整批检查输出 `scope: practice_content_browser_and_collection_delivery`；显式 `--page-only` 才输出 `scope: content_review_and_browser_acceptance`，不能用于整批收尾。任务完成记录须引用报告及对应的成品 Hash；内容检查、浏览器检查、实际生效副本分别列证据，任一缺失时不可写整体完成。
 
 若宿主项目已注册验证/收尾 Hook，可调用该 CLI 并要求退出码为 0，核对报告里的范围与当前文件。该 Skill 不安装或改写全局 Hook/Memory 配置。没有宿主运行时就显式运行 CLI、记录实际证据，并注明没有执行宿主 Hook；报告的 `harness_runtime: not_executed_by_this_tool` 正是这个边界，不能据此声称 Hook 通过。若用户要求修复多个成品，逐文件完成检查，不能用一张样例卷的证据覆盖整批。
+
+
+## 整批交付是独立完成条件
+
+单页内容与浏览器验收之外，必须按[整批交付合同](../../../references/delivery-contract.md)检查实际目录、名称、当前范围、旧版清理结果及全部学习入口。`check_practice_acceptance.py` 默认要求 `--manifest --root --delivery-review`（update 另传 `--previous`）。逐页调试可显式 `--page-only`，报告只代表单页。缺少整批证据时不得写集合更新完成；多目录／全课程任务另须运行[任务范围验收](../../../references/task-delivery.md)，不能将若干通过集合汇总成未覆盖目录也完成。
+
+新版题库声明 `delivery_identity`；使用 `check_course_delivery.filename/title` 从该结构生成文件名与题库标题，其身份与presentation字段都绑定内容审核指纹，名称优先展示主题、用途与载体。非 draft 的 CLI 生成拒绝缺少身份或输出名不匹配。旧文件的替换完成时只保留最新版，临时恢复副本随成功切换清理；不能绕过更新前清单重置为新建。

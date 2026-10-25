@@ -25,6 +25,7 @@ import json
 from pathlib import Path
 
 from audit_practice_bank import RENDERER_VERSION, audit, materialize, validate
+from check_course_delivery import identity, title as delivery_title, filename, html_identity
 
 STYLE = '''<style>*{box-sizing:border-box}body{margin:0;background:#f4f6fa;color:#1c2a3a;font:16px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}main{max-width:970px;margin:auto;padding:30px 18px 100px}.hero,.card,.result{background:#fff;border:1px solid #d9e1eb;border-radius:14px;padding:24px;margin-bottom:18px}h1{margin:4px 0;font-size:32px}h2{font-size:20px}.meta{color:#536476}.option{display:flex;gap:12px;align-items:flex-start;border:1px solid #cfdae7;border-radius:9px;padding:13px;margin:9px 0;cursor:pointer}.option:hover{border-color:#5487ba}.option:focus-within{outline:2px solid #477ab1}input{margin-top:5px}button{border:0;border-radius:8px;padding:13px 20px;font-size:16px;cursor:pointer}.primary{background:#1d5c9a;color:white}.primary:disabled{background:#aab4bf;cursor:not-allowed}.secondary{background:#e7edf4;color:#20354c}.bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #d9e1eb;padding:12px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.right{display:flex;gap:8px}.result{border-left:5px solid #2877ac}.wrong{border-left-color:#b04747}.correct{border-left-color:#3b8d61}.history{margin-top:20px}.history li{margin:5px 0}.fill{width:100%;padding:10px;border:1px solid #cfdae7;border-radius:8px;font-size:16px}.evidence img{max-width:100%;height:auto;border:1px solid #d9e1eb;border-radius:8px}.evidence figcaption{color:#536476;font-size:14px}code{background:#edf1f6;padding:1px 4px;border-radius:3px}a{color:#185d9e}@media(max-width:600px){main{padding:12px 10px 110px}.hero,.card,.result{padding:17px}.bar{align-items:stretch}.bar>*{width:100%}.right button{flex:1}}</style>'''
 
@@ -71,6 +72,12 @@ def embed_images(questions: list[dict], base: Path) -> list[dict]:
 def render(bank: dict, base: Path = Path("."), review: dict | None = None,
            draft: bool = False) -> str:
     validate(bank)
+    delivery = bank.get("delivery_identity")
+    if delivery is not None:
+        identity(delivery)
+        if (bank["course"] != delivery["course"] or bank["title"] != delivery_title(delivery)
+                or bank["version"] != delivery["revision"]):
+            raise ValueError("Practice bank title/course/version differs from structured delivery identity")
     bank = materialize(bank, base)
     result = audit(bank, review)
     if result["automatic_errors"] or (not draft and result["status"] != "passed"):
@@ -80,6 +87,8 @@ def render(bank: dict, base: Path = Path("."), review: dict | None = None,
                 "content_sha256": result["content_sha256"],
                 "content_reviewed": result["status"] == "passed" and not draft,
                 "bank_fields": {k: bank.get(k) for k in ("title", "banner", "requirements")}}
+    if delivery is not None:
+        metadata["bank_fields"]["delivery_identity"] = delivery
     notice = ("" if metadata["content_reviewed"] else
               '<p role="status" class="result">Draft preview · 内容审核未完成，提交关闭；不能作为已验收成品交付。</p>')
     total = sum(q.get("points", 1) for q in questions)
@@ -95,8 +104,8 @@ def render(bank: dict, base: Path = Path("."), review: dict | None = None,
     return (
         '<!doctype html><html lang="en"><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f'<title>{title}</title>{STYLE}'
-        f'<main><header class="hero"><div class="meta">{html.escape(bank["course"])} · {html.escape(bank["version"])} · {banner}</div>'
+        f'<title>{title}</title>{html_identity(delivery) if delivery else ""}{STYLE}'
+        f'<main><header class="hero"><div class="meta">{html.escape(bank["course"])} · {html.escape(bank["version"])} · {html.escape(delivery["review_state"]) + " · " if delivery else ""}{banner}</div>'
         f'<h1>{title}</h1>{notice}<p>{len(questions)} questions · {total:g} points total ({distribution}). Complete every question before submission. '
         'Answers and bilingual explanations appear only after submission.</p>'
         '<p class="meta">Progress and submission history are saved in this browser. For multi-select questions, an incomplete '
@@ -117,6 +126,11 @@ def main() -> None:
     parser.add_argument("--draft", action="store_true", help="Unaccepted preview with submission disabled")
     args = parser.parse_args()
     bank = json.loads(args.bank.read_text(encoding="utf-8"))
+    if not args.draft:
+        if not bank.get("delivery_identity"):
+            parser.error("Non-draft generation requires bank.delivery_identity; see references/delivery-contract.md")
+        if args.output.name != filename(bank["delivery_identity"], ".html"):
+            parser.error("Output filename must be derived from bank.delivery_identity")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     review = json.loads(args.review.read_text(encoding="utf-8")) if args.review else None
     args.output.write_text(render(bank, args.bank.resolve().parent, review, args.draft), encoding="utf-8")

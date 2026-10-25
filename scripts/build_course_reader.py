@@ -10,8 +10,10 @@ import html
 import json
 import re
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from markdown_it import MarkdownIt
+from check_course_delivery import filename, title as display_title, html_identity, identity as validate_identity, local
 
 
 IMAGE = re.compile(r"!\[[^]]*\]\(([^)]+)\)")
@@ -22,6 +24,11 @@ ANCHOR = re.compile(r"<a\s+id=[\"'][^\"']+[\"']\s*></a>")
 def cell_text(cell):
     source = cell.get("source", "")
     return "".join(source) if isinstance(source, list) else source
+
+
+def intro_html(markdown, source):
+    # Preserve notebook text while keeping the reader's main heading unique.
+    return re.sub(r"<(/?)h1\b", r"<\1h3", markdown.render(source))
 
 
 def notebook_pages(path):
@@ -37,7 +44,10 @@ def notebook_pages(path):
         image_paths = IMAGE.findall(original)
         if len(image_paths) != 1 or not translation.strip():
             raise ValueError(f"Invalid page pair at cells {offset}-{offset + 1}: {path}")
-        image = path.parent / image_paths[0]
+        url = urlsplit(image_paths[0])
+        if url.scheme or url.netloc:
+            raise ValueError("Original page images must be offline local resources")
+        image = local(path.parent, unquote(url.path))
         if not image.is_file() or image.is_symlink():
             raise FileNotFoundError(f"Missing or linked original image: {image}")
         heading = HEADING.search(original)
@@ -47,7 +57,20 @@ def notebook_pages(path):
     return intro, pairs
 
 
-def build(title, output, inputs):
+def build(title, output, inputs, delivery_identity=None, diagnostic=False):
+    if delivery_identity is None and not diagnostic:
+        raise ValueError("Reader delivery needs identity/presentation; use diagnostic=True only for a temporary preview")
+    if delivery_identity is None and diagnostic and not title:
+        raise ValueError("Diagnostic preview needs an explicit title")
+    if delivery_identity is not None:
+        validate_identity(delivery_identity)
+        if output.name != filename(delivery_identity, ".html"):
+            raise ValueError("Reader output filename differs from readable presentation")
+        if title is not None and title != display_title(delivery_identity):
+            raise ValueError("Reader title differs from presentation")
+        title = display_title(delivery_identity)
+    if not inputs:
+        raise ValueError("Reader needs at least one notebook")
     md = MarkdownIt("commonmark", {"html": True, "linkify": True}).enable("table")
     sections = []
     total = 0
@@ -80,13 +103,13 @@ def build(title, output, inputs):
     )
     content = "".join(
         f'<section class="chapter" id="{cid}"><header><p class="eyebrow">来源 Notebook：{html.escape(filename)}</p>'
-        f'<h2>{html.escape(label)}</h2><details class="source-note"><summary>查看原 Notebook 的来源与使用说明</summary>{md.render(intro)}</details></header>'
+        f'<h2>{html.escape(label)}</h2><details class="source-note"><summary>查看原 Notebook 的来源与使用说明</summary>{intro_html(md, intro)}</details></header>'
         f'{"".join(pages)}</section>'
         for cid, label, intro, _, pages, filename in sections
     )
     document = f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{html.escape(title)}</title>
+<title>{html.escape(title)}</title>{html_identity(delivery_identity) if delivery_identity and not diagnostic else ''}
 <style>
 :root{{--ink:#182433;--muted:#5e6c7b;--line:#d8e0e8;--paper:#fff;--bg:#f5f7fa;--accent:#325eaa}}
 *{{box-sizing:border-box}}html{{scroll-behavior:smooth}}body{{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
@@ -98,8 +121,8 @@ aside details{{border-top:1px solid var(--line);padding:9px 0}}summary{{cursor:p
 .page-card{{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin:20px 0;padding:24px;box-shadow:0 3px 14px #23374b0a;scroll-margin-top:18px}}.page-head{{display:grid;gap:4px;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px}}.page-head span{{color:var(--muted);font-size:.8rem}}.page-head strong{{font-size:1.08rem}}
 .original img{{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:5px}}.original h2{{display:none}}.translation{{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}}.translation h3{{margin-top:0}}p,li{{overflow-wrap:anywhere}}table{{border-collapse:collapse;display:block;overflow:auto;max-width:100%}}th,td{{border:1px solid var(--line);padding:7px 10px;text-align:left;min-width:70px}}th{{background:#f0f4f8}}pre{{overflow:auto;background:#14253a;color:#f7fbff;padding:14px;border-radius:7px}}code{{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}}a{{color:var(--accent)}}.hidden{{display:none!important}}.status{{font-size:.85rem;color:var(--muted);margin:8px 0 14px}}
 @media(max-width:850px){{.layout{{display:block}}aside{{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}}aside details{{display:none}}main{{padding:20px 12px}}.page-card{{padding:14px}}}}
-</style></head><body><div class="layout"><aside><h1>{html.escape(title)}</h1><p>原页图片紧邻可编辑中文；共 {total} 页。图片引用同目录实体资源，不访问网络。</p><label for="search">搜索页标题或中文内容</label><input id="search" type="search" placeholder="输入概念、术语或页码"><div class="status" id="status">显示全部 {total} 页</div><nav>{navigation}</nav></aside>
-<main><header><p class="eyebrow">课程资料 · 逐页阅读总册</p><h1>{html.escape(title)}</h1><p>每页先显示教师原页图片，再显示既有 Notebook 中可选择、可搜索的中文文字。页码与来源保留在原 Notebook 的每章说明中；这是阅读版本，不替换原始课件或 Notebook。</p></header>{content}</main></div>
+</style></head><body><div class="layout"><aside><strong>{html.escape(title)}</strong><p>原页图片紧邻可编辑中文；共 {total} 页。图片引用同目录实体资源，不访问网络。</p><label for="search">搜索页标题或中文内容</label><input id="search" type="search" placeholder="输入概念、术语或页码"><div class="status" id="status">显示全部 {total} 页</div><nav>{navigation}</nav></aside>
+<main><header><p class="eyebrow">{'临时诊断预览，未作为交付验收' if diagnostic else '课程资料 · 逐页阅读总册'} · {html.escape(delivery_identity['review_state'] + ' · ' + delivery_identity['date'] + ' · ' + delivery_identity['revision']) if delivery_identity else '未验收'}</p><h1>{html.escape(title)}</h1><p>每页先显示教师原页图片，再显示既有 Notebook 中可选择、可搜索的中文文字。页码与来源保留在原 Notebook 的每章说明中；这是阅读版本，不替换原始课件或 Notebook。</p></header>{content}</main></div>
 <script>const cards=[...document.querySelectorAll('.page-card')],search=document.querySelector('#search'),status=document.querySelector('#status');search.addEventListener('input',()=>{{const q=search.value.trim().toLowerCase();let visible=0;for(const card of cards){{const show=!q||card.dataset.search.includes(q);card.classList.toggle('hidden',!show);if(show)visible++}}status.textContent=`显示 ${{visible}} / ${{cards.length}} 页`;}});</script></body></html>'''
     output.write_text(document, encoding="utf-8")
     print(f"output={output} chapters={len(sections)} pages={total} bytes={output.stat().st_size}")
@@ -107,8 +130,15 @@ aside details{{border-top:1px solid var(--line);padding:9px 0}}summary{{cursor:p
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--title", required=True)
+    parser.add_argument("--title")
+    parser.add_argument("--identity", type=Path, help="Delivery identity JSON including readable presentation")
+    parser.add_argument("--diagnostic", action="store_true", help="Temporary preview only; cannot establish delivery")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("notebooks", nargs="+", type=Path)
     args = parser.parse_args()
-    build(args.title, args.output, args.notebooks)
+    if not args.identity and not args.diagnostic:
+        parser.error("Use --identity for delivery, or --diagnostic for an unaccepted temporary preview")
+    if args.diagnostic and not args.title and not args.identity:
+        parser.error("Diagnostic preview needs a title")
+    delivery = json.loads(args.identity.read_text(encoding="utf-8")) if args.identity else None
+    build(args.title, args.output, args.notebooks, delivery, args.diagnostic)
